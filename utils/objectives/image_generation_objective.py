@@ -393,8 +393,7 @@ class ImageGenerationObjective(Objective):
     def query_oracle(self, x, return_img=False):
         if not torch.is_tensor(x):
             x = torch.tensor(x, dtype=torch.float16)
-        x = x.cuda() 
-        x = x.reshape(-1, self.n_tokens, self.search_space_dim) 
+        x = x.reshape(-1, self.n_tokens, self.search_space_dim)
         out_types = ["loss"]
         if return_img:
             out_types = ["image", "loss"]

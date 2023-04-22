@@ -32,14 +32,14 @@ class RunTurbo():
         self.args = args 
 
     def initialize_global_surrogate_model(self, init_points, hidden_dims):
-        likelihood = gpytorch.likelihoods.GaussianLikelihood().cuda() 
+        likelihood = gpytorch.likelihoods.GaussianLikelihood()
         model = GPModelDKL(
-            init_points.cuda(), 
+            init_points,
             likelihood=likelihood,
             hidden_dims=hidden_dims,
-        ).cuda()
+        )
         model = model.eval() 
-        model = model.cuda()
+        model = model
         return model  
 
     def start_wandb(self):
@@ -62,7 +62,7 @@ class RunTurbo():
             torch.manual_seed(seed) 
             random.seed(seed)
             np.random.seed(seed)
-            torch.cuda.manual_seed(seed)
+            torch.manual_seed(seed)
             torch.cuda.manual_seed_all(seed)
             torch.backends.cudnn.benchmark = False
             torch.backends.cudnn.deterministic = True
@@ -80,13 +80,13 @@ class RunTurbo():
         mll = PredictiveLogLikelihood(model.likelihood, model, num_data=train_z.shape[0] )
         optimizer = torch.optim.Adam([{'params': model.parameters(), 'lr': learning_rte} ], lr=learning_rte)
         train_bsz = min(len(train_y),128)
-        train_dataset = TensorDataset(train_z.cuda(), train_y.cuda())
+        train_dataset = TensorDataset(train_z, train_y)
         train_loader = DataLoader(train_dataset, batch_size=train_bsz, shuffle=True)
         for _ in range(n_epochs):
             for (inputs, scores) in train_loader:
                 optimizer.zero_grad()
-                output = model(inputs.cuda())
-                loss = -mll(output, scores.cuda()).sum() 
+                output = model(inputs)
+                loss = -mll(output, scores).sum()
                 loss.backward()
                 torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
                 optimizer.step()
@@ -293,7 +293,7 @@ class RunTurbo():
     def get_avg_dist_between_vectors(self):
         # Only needed to compute once. 
         embeddings = self.args.objective.all_token_embeddings.cpu().to(torch.float32)
-        dists = torch.cdist(embeddings.cuda(), embeddings.cuda(), p=2.0)
+        dists = torch.cdist(embeddings, embeddings, p=2.0)
         dists2 = dists.flatten()
         dists2 = dists2.detach().cpu()
         dists3 = dists2[dists2 > 0.0]
@@ -410,7 +410,7 @@ class RunTurbo():
                 'tr_failure_counter':tr.failure_counter,
                 'num_tr_restarts':num_tr_restarts,
                 "beat_best_baseline":self.beat_best_baseline,
-            } ) 
+            })
             if self.args.Y.max().item() > prev_best:
                 n_calls_without_progress = 0
                 prev_best = self.args.Y.max().item() 

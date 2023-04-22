@@ -207,8 +207,7 @@ class TextGenerationObjective(Objective):
     def query_oracle(self, x ):
         if not torch.is_tensor(x):
             x = torch.tensor(x, dtype=torch.float16)
-        x = x.cuda() 
-        x = x.reshape(-1, self.n_tokens, self.search_space_dim) 
+        x = x.reshape(-1, self.n_tokens, self.search_space_dim)
         out_dict = self.pipe(
             input_type="raw_word_embedding", 
             input_value=x, 
