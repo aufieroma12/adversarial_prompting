@@ -5,7 +5,6 @@ import gpytorch
 from gpytorch.models import ApproximateGP
 from gpytorch.variational import CholeskyVariationalDistribution
 from gpytorch.variational import VariationalStrategy
-from gpytorch.mlls import VariationalELBO, PredictiveLogLikelihood
 from botorch.posteriors.gpytorch import GPyTorchPosterior
 from gpytorch.variational import LMCVariationalStrategy
 from gpytorch.kernels.additive_structure_kernel import AdditiveStructureKernel

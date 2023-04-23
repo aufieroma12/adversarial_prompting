@@ -120,7 +120,7 @@ class TextGenerationObjective(Objective):
         gen_texts = [[cur_dict['generated_text'] for cur_dict in cur_gen] for cur_gen in gen_texts]
         return gen_texts
         
-    def text_to_loss(self, text): # , loss_type='log_prob_pos') 
+    def text_to_loss(self, text):
         if self.loss_type in ['log_prob_pos', 'log_prob_neg']: 
             num_prompts = len(text) 
             flattened_text = [item for sublist in text for item in sublist]

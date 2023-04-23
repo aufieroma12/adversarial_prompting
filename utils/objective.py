@@ -37,7 +37,6 @@ class Objective:
         self.num_calls += xs.shape[0]
         return self.query_oracle(xs)
 
-
     def query_oracle(self, x):
         ''' Input: 
                 a single input space item x

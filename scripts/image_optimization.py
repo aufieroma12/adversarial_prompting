@@ -221,7 +221,7 @@ class RunTurbo():
             "best_baseline_prcnt_latents_correct_class_most_probable":baseline_prcnt_correct_clss[best_score_idx],
         }) 
 
-    def save_stuff(self ):
+    def save_stuff(self):
         # X = self.args.X
         Y = self.args.Y
         P = self.args.P 
@@ -506,6 +506,6 @@ if __name__ == "__main__":
     args.prepend_to_text = PREPEND_TASK_VERSIONS[args.prepend_task_version]
     args.optimal_class_level, args.optimal_sub_classes = get_imagenet_sub_classes(args.optimal_class)
 
-    runner = RunTurbo(args) 
+    runner = RunTurbo(args)
     runner.run()
  

@@ -1,14 +1,20 @@
 import math
+from typing import Optional
+
 import torch
 from dataclasses import dataclass
 from torch.quasirandom import SobolEngine
 from botorch.acquisition import qExpectedImprovement
 from botorch.optim import optimize_acqf
+
+from utils.bo_utils.ppgpr import GPModelDKL
+
 try:
     from botorch.generation import MaxPosteriorSampling 
 except:
     from .bo_torch_sampling import MaxPosteriorSampling 
 # based on TuRBO State from BoTorch
+
 
 @dataclass
 class TrustRegionState:
@@ -28,13 +34,15 @@ class TrustRegionState:
     #         max([4.0 / self.batch_size, float(self.dim ) / self.batch_size])
     #     )
 
-def update_state(state, Y_next):
-    if max(Y_next) > state.best_value + 1e-3 * math.fabs(state.best_value):
+
+def update_state(state: TrustRegionState, y_next: torch.Tensor) -> TrustRegionState:
+    if y_next.max().item() > state.best_value + 1e-3 * math.fabs(state.best_value):
         state.success_counter += 1
         state.failure_counter = 0
+        state.best_value = y_next.max().item()
     else:
         state.success_counter = 0
-        state.failure_counter += 1 # len(Y_next) # 1
+        state.failure_counter += 1
 
     if state.success_counter >= state.success_tolerance:  # Expand trust region
         state.length = min(2.0 * state.length, state.length_max)
@@ -43,7 +51,6 @@ def update_state(state, Y_next):
         state.length /= 2.0
         state.failure_counter = 0
 
-    state.best_value = max(state.best_value, max(Y_next).item())
     if state.length < state.length_min:
         state.restart_triggered = True
     
@@ -51,24 +58,25 @@ def update_state(state, Y_next):
 
 
 def generate_batch(
-    state,
-    model,  # GP model
-    X,  # Evaluated points 
-    Y,  # Evaluated scores
-    batch_size,
-    n_candidates=None,  # Number of candidates for Thompson sampling 
-    num_restarts=10,
-    raw_samples=256,
-    acqf="ts",  # "ei" or "ts"
+    state: TrustRegionState,
+    model: GPModelDKL,  # GP model
+    x_best: torch.Tensor,
+    y_best: float,
+    batch_size: int,
+    n_candidates: Optional[int] = None,  # Number of candidates for Thompson sampling
+    num_restarts: int = 10,
+    raw_samples: int = 256,
+    acqf: str = "ts",  # "ei" or "ts"
     dtype=torch.float32,
     device=torch.device('cpu'),
     absolute_bounds=None, 
-):
+) -> torch.Tensor:
     assert acqf in ("ts", "ei")
-    assert torch.all(torch.isfinite(Y))
-    if n_candidates is None: n_candidates = min(5000, max(2000, 200 * X.shape[-1]))
+    assert torch.isfinite(y_best)
+    dim = x_best.shape[-1]
+    n_candidates = n_candidates or min(5000, max(2000, 200 * dim))
 
-    x_center = X[Y.argmax(), :].clone()  
+    x_center = x_best.clone()
     lb, ub = absolute_bounds 
 
     weights = torch.ones_like(x_center)
@@ -83,27 +91,31 @@ def generate_batch(
 
     if acqf == "ei":
         try:
-            ei = qExpectedImprovement(model, Y.max())
-            X_next, _ = optimize_acqf(ei,bounds=torch.stack([tr_lb, tr_ub]), q=batch_size, num_restarts=num_restarts,raw_samples=raw_samples)
+            ei = qExpectedImprovement(model, y_best)
+            X_next, _ = optimize_acqf(
+                ei,
+                bounds=torch.stack([tr_lb, tr_ub]),
+                q=batch_size,
+                num_restarts=num_restarts,
+                raw_samples=raw_samples,
+            )
+            return X_next
         except: 
-            acqf = 'ts'
+            pass
 
-    if acqf == "ts":
-        dim = X.shape[-1]
-        sobol = SobolEngine(dim, scramble=True)
-        pert = sobol.draw(n_candidates).to(dtype=dtype)
-        pert = tr_lb + (tr_ub - tr_lb) * pert
-        # Create a perturbation mask
-        prob_perturb = min(20.0 / dim, 1.0)
-        mask = (torch.rand(n_candidates, dim, dtype=dtype, device=device)<= prob_perturb)
-        ind = torch.where(mask.sum(dim=1) == 0)[0]
-        mask[ind, torch.randint(0, dim - 1, size=(len(ind),), device=device)] = 1
-        # Create candidate points from the perturbations and the mask
-        X_cand = x_center.expand(n_candidates, dim).clone()
-        X_cand = X_cand
-        X_cand[mask] = pert[mask]
-        # Sample on the candidate points 
-        thompson_sampling = MaxPosteriorSampling(model=model, replacement=False ) 
-        X_next = thompson_sampling(X_cand, num_samples=batch_size)
+    sobol = SobolEngine(dim, scramble=True)
+    pert = sobol.draw(n_candidates).to(dtype=dtype)
+    pert = tr_lb + (tr_ub - tr_lb) * pert
+    # Create a perturbation mask
+    prob_perturb = min(20.0 / dim, 1.0)
+    mask = torch.rand(n_candidates, dim, dtype=dtype, device=device) <= prob_perturb
+    ind = torch.where(mask.sum(dim=1) == 0)[0]
+    mask[ind, torch.randint(0, dim - 1, size=(len(ind),), device=device)] = 1
+    # Create candidate points from the perturbations and the mask
+    X_cand = x_center.expand(n_candidates, dim).clone()
+    X_cand[mask] = pert[mask]
+    # Sample on the candidate points
+    thompson_sampling = MaxPosteriorSampling(model=model, replacement=False)
+    X_next = thompson_sampling(X_cand, num_samples=batch_size)
 
     return X_next

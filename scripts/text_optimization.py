@@ -157,39 +157,40 @@ class OptimizeText(RunTurbo):
             target_string=self.args.target_string,
         )
 
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser() 
-    parser.add_argument('--n_init_per_prompt', type=int, default=None ) 
+    parser.add_argument('--n_init_per_prompt', type=int, default=None)
     parser.add_argument('--n_init_pts', type=int, default=None) 
-    parser.add_argument('--lr', type=float, default=0.01 ) 
+    parser.add_argument('--lr', type=float, default=0.01)
     parser.add_argument('--n_epochs', type=int, default=2)  
     parser.add_argument('--init_n_epochs', type=int, default=80) 
-    parser.add_argument('--acq_func', type=str, default='ts' ) 
+    parser.add_argument('--acq_func', type=str, default='ts')
     parser.add_argument('--debug', type=bool, default=False) 
     parser.add_argument('--minimize', type=bool, default=False)  
     parser.add_argument('--task', default="textgen") 
     parser.add_argument('--hidden_dims', type=tuple_type, default="(256,128,64)") 
-    parser.add_argument('--more_hdims', type=bool, default=True) # for >8 tokens only 
-    parser.add_argument('--seed', type=int, default=1 ) 
+    parser.add_argument('--more_hdims', type=bool, default=True)  # for >8 tokens only
+    parser.add_argument('--seed', type=int, default=1)
     parser.add_argument('--success_value', type=int, default=8)  
     parser.add_argument('--break_after_success', type=bool, default=False)
     parser.add_argument('--max_n_calls', type=int, default=3_000) 
-    parser.add_argument('--num_gen_seq', type=int, default=5 ) 
-    parser.add_argument('--max_gen_length', type=int, default=20 ) 
-    parser.add_argument('--dist_metric', default="sq_euclidean" )  
-    parser.add_argument('--n_tokens', type=int, default=4 ) 
-    parser.add_argument('--failure_tolerance', type=int, default=32 )  
-    parser.add_argument('--success_tolerance', type=int, default=10 )  
-    parser.add_argument('--max_allowed_calls_without_progress', type=int, default=1_000 ) # for square baseline! 
-    parser.add_argument('--text_gen_model', default="opt" ) 
+    parser.add_argument('--num_gen_seq', type=int, default=5)
+    parser.add_argument('--max_gen_length', type=int, default=20)
+    parser.add_argument('--dist_metric', default="sq_euclidean")
+    parser.add_argument('--n_tokens', type=int, default=4)
+    parser.add_argument('--failure_tolerance', type=int, default=32)
+    parser.add_argument('--success_tolerance', type=int, default=10)
+    parser.add_argument('--max_allowed_calls_without_progress', type=int, default=1_000) # for square baseline!
+    parser.add_argument('--text_gen_model', default="opt")
     parser.add_argument('--square_attack', type=bool, default=False) 
     parser.add_argument('--bsz', type=int, default=10)  
     parser.add_argument('--prepend_task', type=bool, default=False)  
     parser.add_argument('--prepend_to_text', default="I am happy")
-    parser.add_argument('--loss_type', default="target_occurrences" ) 
-    parser.add_argument('--target_string', default="t" )  
-    parser.add_argument('--wandb_entity', default="nmaus" ) 
-    parser.add_argument('--wandb_project_name', default="prompt-optimization-text" )  
+    parser.add_argument('--loss_type', default="target_occurrences")
+    parser.add_argument('--target_string', default="t")
+    parser.add_argument('--wandb_entity', default="nmaus")
+    parser.add_argument('--wandb_project_name', default="prompt-optimization-text")
     args = parser.parse_args() 
     if args.loss_type == "log_prob_neg":
         args.prepend_to_text = "I am happy"
