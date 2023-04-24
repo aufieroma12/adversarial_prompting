@@ -2,3 +2,4 @@
 scripts/wandb/
 .idea
 .venv
+.ipynb_checkpoints
