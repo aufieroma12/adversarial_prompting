@@ -61,7 +61,7 @@ def generate_batch(
     state: TrustRegionState,
     model: GPModelDKL,  # GP model
     x_best: torch.Tensor,
-    y_best: float,
+    y_best: torch.Tensor,
     batch_size: int,
     n_candidates: Optional[int] = None,  # Number of candidates for Thompson sampling
     num_restarts: int = 10,
@@ -69,7 +69,7 @@ def generate_batch(
     acqf: str = "ts",  # "ei" or "ts"
     dtype=torch.float32,
     device=torch.device('cpu'),
-    absolute_bounds=None, 
+    absolute_bounds=(None, None),
 ) -> torch.Tensor:
     assert acqf in ("ts", "ei")
     assert torch.isfinite(y_best)

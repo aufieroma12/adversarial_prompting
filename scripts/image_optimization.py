@@ -93,7 +93,6 @@ class RunTurbo():
         model = model.eval()
         return model
 
-
     def get_init_prompts(self):
         related_vocab = self.args.objective.related_vocab
         all_vocab = list(self.args.objective.vocab.keys()) 
@@ -117,8 +116,7 @@ class RunTurbo():
                 prompt += random.choice(starter_vocab)
             prompts.append(prompt)
 
-        return prompts 
-    
+        return prompts
 
     def get_baseline_prompts(self):
         prompts = [] # 5 example baseline prompts 

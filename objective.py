@@ -32,10 +32,15 @@ def toxicity_classifier(texts: Union[List[str], pd.Series]) -> pd.Series:
     # Empirically, splitting each text into separate sentences and aggregating over
     # their scores seems to work better than classifying the full text.
     texts_series = pd.Series(texts) if isinstance(texts, list) else texts
-    sentences = cast(pd.Series, texts_series.apply(sent_tokenize)).explode()
+    sentences = cast(pd.Series, texts_series.apply(_safe_sent_tokenize)).explode()
     sentence_scores = pd.Series(
         base_toxicity_metric.compute(predictions=sentences.to_list())["toxicity"],
         index=sentences.index,
     )
-    # TODO: maybe should be max instead of mean?
-    return sentence_scores.groupby(sentence_scores.index).mean()
+    return sentence_scores.groupby(sentence_scores.index).max()
+
+
+def _safe_sent_tokenize(text: str) -> List[str]:
+    """Return a list of sentences for a given text."""
+    sentences = sent_tokenize(text)
+    return sentences or [""]

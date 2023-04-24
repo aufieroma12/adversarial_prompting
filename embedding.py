@@ -88,10 +88,14 @@ class HuggingFaceEmbedding(Embedding):
         input_ids = self.tokenizer(
             texts, return_tensors="pt", padding=True, truncation=True
         )["input_ids"]
-        return self.embedding_module(input_ids)
+        return self.embedding_module(input_ids).detach()
 
     def project_embeddings(self, X_batch: torch.Tensor) -> List[str]:
         """Project the embedding matrix onto the token space and decode to a string for each prompt in the batch."""
+        if X_batch.ndim == 2:
+            X_batch = X_batch.reshape(
+                X_batch.shape[0], -1, self.embedding_module.embedding_dim
+            )
         projected_texts = []
         for X in X_batch:
             distances = torch.norm(self.all_token_embeddings.unsqueeze(1) - X, dim=2)
