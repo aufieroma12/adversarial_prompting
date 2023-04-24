@@ -53,16 +53,6 @@ class Attack:
         self.objective = objective
         self.config = attack_config or AttackConfig()
 
-    def score(self, X: torch.Tensor, inputs: List[Input]) -> torch.Tensor:
-        """Compute the score for a given batch of inputs."""
-        projected_texts = self.embedding_module.project_embeddings(X)
-        scores = []
-        for text in projected_texts:
-            batch = [input_.get_full_text(text) for input_ in inputs]
-            outputs = [self.model(text) for text in batch]
-            scores.append(self.objective(outputs))
-        return torch.tensor(scores)
-
     def run(
         self, inputs: List[Input], initial_prompt: Optional[str] = None
     ) -> AttackState:
@@ -74,24 +64,32 @@ class Attack:
                 self.config.num_tokens, self.config.num_candidates
             )
         )
+        attack_state = AttackState(
+            inputs,
+            self.embedding_module,
+            self.model,
+            self.objective,
+            self.config.max_iters,
+            self.config.max_consecutive_unsuccessful_iters,
+            self.config.max_queries,
+        )
         X = self.embedding_module.get_embeddings(initial_prompts).flatten(1, 2)
-        y = self.score(X, inputs)
+        y = attack_state.evaluate(X)
         surrogate_model = self._initialize_surrogate_model(X)
         surrogate_model = self._update_surrogate_model(
             surrogate_model, X, y, self.config.learning_rate, self.config.num_epochs
         )
-        y_best = y.max().item()
+        y_best = y.max()
         x_best = X[y.argmax()]
         num_trust_region_restarts = 0
         dim = X.shape[1]
         trust_region = TrustRegionState(dim=dim)
-        consecutive_unsuccessful_iters = 0
 
-        for num_iters in range(1, self.config.max_iters + 1):
+        while not attack_state.exhausted:
             X_next = generate_batch(
                 trust_region, surrogate_model, x_best, y_best, self.config.num_candidates
             )
-            y_next = self.score(X_next, inputs)
+            y_next = attack_state.evaluate(X_next)
 
             X = torch.cat((X, X_next), dim=0)
             y = torch.cat((y, y_next), dim=0)
@@ -102,7 +100,7 @@ class Attack:
                 trust_region = TrustRegionState(dim=dim)
             if (
                 trust_region.restart_triggered
-                or ((X.shape[0] < 1024) and (num_iters % 10 == 0))
+                or ((X.shape[0] < 1024) and (attack_state.num_iters % 10 == 0))
             ):
                 # restart gp and update on all data
                 surrogate_model = self._initialize_surrogate_model(X)
@@ -122,21 +120,20 @@ class Attack:
                     self.config.num_epochs,
                 )
 
-            if y_next.max().item() > y_best:
-                consecutive_unsuccessful_iters = 0
-                y_best = y_next.max().item()
+            if y_next.max() > y_best:
+                attack_state.consecutive_unsuccessful_iters = 0
+                y_best = y_next.max()
                 x_best = X_next[y_next.argmax()]
             else:
-                consecutive_unsuccessful_iters += 1
+                attack_state.consecutive_unsuccessful_iters += 1
 
-            if (
-                consecutive_unsuccessful_iters > self.config.max_consecutive_unsuccessful_iters  # pylint: disable=line-too-long
-                or self.model.num_queries > self.config.max_queries
-            ):
-                break
+            attack_state.variable_text = self.embedding_module.project_embeddings(
+                x_best.unsqueeze(0)
+            )[0]
+            attack_state.score = y_best.item()
+            attack_state.num_iters += 1
 
-        best_prompt = self.embedding_module.project_embeddings(x_best.unsqueeze(0))[0]
-        return AttackState(best_prompt, inputs, y_best)
+        return attack_state
 
     def _get_initial_prompts(self, num_tokens: int, num_candidates: int):
         """Return a randomly initialized set of candidate prompts."""
